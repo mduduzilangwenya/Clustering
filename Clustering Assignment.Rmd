@@ -1,10 +1,12 @@
 ---
 title: "Clustering Assignment#4"
-author: "Mduduzi Langwenya"
-date: "March 28, 2019"
+author: "Ran Dou, Mduduzi Langwenya, Kimo Li, Siyan Lin, Muhammad Furqan Shaikh, Tianyi Zhou"
+date: "03/25/2019"
 output: html_document
 ---
 
 ```{r}
 
 ```
+
+
