@@ -5,7 +5,89 @@ date: "03/25/2019"
 output: html_document
 ---
 
+load all libraries
+
 ```{r}
+library(cluster)
+library(tidyverse)
+
+```
+
+### I. Data cleaning and impution
+
+##### Data importing
+```{r, warning=FALSE, message=FALSE}
+###import the raw diabetes data
+diabetes <- read_csv("diabetes.csv")
+###delete all the missing valuse
+diabetes1 <- diabetes %>%
+  filter( Glucose !=0 & BMI != 0 & BloodPressure != 0 & Insulin != 0 & SkinThickness != 0) %>%
+  select(Glucose, Insulin, Outcome, BMI, SkinThickness )
+```
+
+##### Fill-in Zero Value
+###### 1) Insulin
+```{r,  message=FALSE}
+### Insulin 
+# stepwise for choosing models for Insulin 
+insu.lm.null <- lm(Insulin~1, data = diabetes1)
+insu.lm <- lm(Insulin~., data = diabetes1)
+summary(insu.lm.null)
+summary(insu.lm)
+insu.lm.step_both <- step(insu.lm, direction = "both")
+sum_both <- summary(insu.lm.step_both)
+### create the model for imputing Insulin missing values
+lm.data <- lm (Insulin ~ Glucose + BMI, data=diabetes1)
+pred.1 <- predict (lm.data, diabetes1)
+impute <-function(a, a.impute){
+         ifelse(a$Insulin == 0, round(a.impute, 0), a$Insulin)
+}
+diabetes$newInsu <- impute(diabetes, pred.1)
+rm( insu.lm, insu.lm.null, insu.lm.step_both, sum_both, lm.data)
+```
+
+###### 2) Skinthickness 
+```{r}
+### stepwise for choosing models for Insulin 
+skin.lm.null <- lm(SkinThickness~1, data = diabetes1)
+skin.lm <- lm(SkinThickness~., data = diabetes1)
+skin.lm.step_both <- step(skin.lm, direction = "both")
+sum_both_skin <- summary(skin.lm.step_both)
+### create the model for imputing SkinThickness missing values
+lm2.data <- lm(SkinThickness ~ BMI, data=diabetes1)
+pred.2 <- predict (lm2.data, diabetes1)
+impute <-function(a, a.impute){
+  ifelse(a$SkinThickness == 0, round(a.impute, 0), a$SkinThickness)
+}
+diabetes$newSkin <- impute(diabetes, pred.2)
+
+rm(skin.lm.null, skin.lm, skin.lm.step_both, sum_both_skin, lm2.data, pred.2,diabetes1)
+```
+
+
+K-Means Clustering
+```{r}
+
+# 2 clusters
+k2 <- kmeans(xtab, 2)
+
+# 3 clusters
+k3 <- kmeans(xtab, 3)
+
+# 4 clusters
+k4 <- kmeans(xtab, 4)
+
+# 5 clusters
+k5 <- kmeans(xtab, 5)
+
+# add 3-cluster to dataframe
+xtab$Clusters <- as.factor(k3$cluster)
+
+#sort by average revenue and rank number in X1
+xtab <- xtab %>% arrange(REVCHRGS)
+xtab$X1 <- seq.int(nrow(xtab))
+
+
 
 ```
 
