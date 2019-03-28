@@ -27,13 +27,11 @@ diabetes1 <- diabetes %>%
 
 ##### Fill-in Zero Value
 ###### 1) Insulin
-```{r,  message=FALSE}
+```{r,message=FALSE,  echo=T, results='hide'}
 ### Insulin 
 # stepwise for choosing models for Insulin 
 insu.lm.null <- lm(Insulin~1, data = diabetes1)
 insu.lm <- lm(Insulin~., data = diabetes1)
-summary(insu.lm.null)
-summary(insu.lm)
 insu.lm.step_both <- step(insu.lm, direction = "both")
 sum_both <- summary(insu.lm.step_both)
 ### create the model for imputing Insulin missing values
@@ -61,11 +59,61 @@ impute <-function(a, a.impute){
 }
 diabetes$newSkin <- impute(diabetes, pred.2)
 
-rm(skin.lm.null, skin.lm, skin.lm.step_both, sum_both_skin, lm2.data, pred.2,diabetes1)
+rm(skin.lm.null, skin.lm, skin.lm.step_both, sum_both_skin, lm2.data, pred.2,diabetes1, impute, pred.1)
+
+diabetes$SkinThickness <- NULL
+diabetes$Insulin <- NULL
+
+diabetes <- diabetes %>%
+  rename(Insulin = "newInsu",
+         SkinThickness = "newSkin")
+
+diabetes<- as_tibble(diabetes)
 ```
 
 
 K-Means Clustering
+
+
+```{r}
+# K-means clustering
+# ==========
+dia.df.num = model.matrix(~ Pregnancies + factor(gender) + Glucose +
+                            BloodPressure + SkinThickness + Insulin + 
+                            BMI + factor(Age) _ factor(Outcome),  data = diabetes)
+
+## Scaling the data
+####################
+
+scaled_data = scale(seg.df.num[,-1])
+
+## How many clusters to choose?
+## ============================
+k.max <- 15
+wss <- sapply(1:k.max, 
+              function(k){kmeans(scaled_data, k, nstart=50,iter.max = 20 )$tot.withinss})
+wss
+plot(1:k.max, wss,
+     type="b", pch = 19, frame = FALSE, 
+     xlab="Number of clusters K",
+     ylab="Total within-clusters sum of squares")
+
+
+# Find the K-means groups
+# ==========        # because starting assignments are random
+seg.k3 <- kmeans(scaled_data, centers=3, nstart = 50, iter.max = 20 )
+
+seg.summ(seg.df.num, seg.k3$cluster)
+
+seg.k4 <- kmeans(scaled_data, centers=4, nstart = 50, iter.max = 20 )
+
+seg.summ(seg.df.num, seg.k4$cluster)
+
+
+```
+
+
+
 ```{r}
 
 # 2 clusters
