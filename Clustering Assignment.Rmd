@@ -10,7 +10,8 @@ load all libraries
 ```{r}
 library(cluster)
 library(tidyverse)
-
+library(NbClust)
+library(factoextra)
 ```
 
 ### I. Data cleaning and impution
@@ -126,4 +127,142 @@ table(diabetes$Age, diabetes$cluster)
 ```
 
 
+<<<<<<< HEAD
 
+=======
+Hcluster
+```{r}
+diabetes <- diabetes.copy
+
+# delete outcome. take glucose as target
+diabetes <- diabetes %>% select(-"Outcome")
+
+# normalize input variables
+diabetes.df.norm <- sapply(diabetes, scale)
+
+# add row names: 
+row.names(diabetes.df.norm) <- row.names(diabetes) # compute normalized distance based on variables Sales and FuelCost
+d.norm <- dist(diabetes.df.norm, method = "euclidean")  
+
+# in hclust() set argument method =  
+# to "ward.D", "single", "complete", "average", "median", or "centroid",  246 work
+hc1 <- hclust(d.norm, method = "single")
+plot(hc1, main = "Single Linkage Clustering", hang = -1, labels=FALSE)
+
+hc2 <- hclust(d.norm, method = "average")
+plot(hc2, main = "Average Linkage Clustering", hang = -1, labels=FALSE)
+
+hc3 <- hclust(d.norm, method = "median")
+plot(hc3, main = "Median Linkage Clustering", hang = -1, labels=FALSE)
+
+hc4 <- hclust(d.norm, method = "complete")
+plot(hc4, main = "Complete Linkage Clustering", hang = -1, labels=FALSE)
+
+hc5 <- hclust(d.norm, method = "centroid")
+plot(hc5, main = "Centroid Linkage Clustering", hang = -1, labels=FALSE)
+
+hc6 <- hclust(d.norm, method = "ward.D")
+plot(hc6, main = "Word.D Linkage Clustering", hang = -1, labels=FALSE)
+```
+
+
+```{r}
+# trees of method average, complete, ward.d are more clear, so we take those three
+# different colors refer to different clusters
+#head(colors()) 
+fviz_dend(hc2, k = 13, 
+          cex = 0.5, 
+          k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07", "#A52A2A","#FF4040","#EE3B3B","#8B2323","#CDAA7D","#98F5FF","#7FFF00","#66CD00","#53868B"),
+          color_labels_by_k = TRUE, 
+          rect = TRUE          
+)
+
+fviz_dend(hc4, k = 8, 
+          cex = 0.5, 
+          k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07", "#A52A2A","#FF4040","#EE3B3B","#8B2323"),
+          color_labels_by_k = TRUE, 
+          rect = TRUE          
+)
+
+fviz_dend(hc6, k = 10, 
+          cex = 0.5, 
+          k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07", "#A52A2A","#FF4040","#EE3B3B","#8B2323","#66CD00","#53868B"),
+          color_labels_by_k = TRUE, 
+          rect = TRUE          
+)
+```
+
+```{r}
+# get cluster number
+memb2 <- cutree(hc2, k = 13)
+#memb2
+memb4 <- cutree(hc4, k = 8)
+#memb4
+memb6 <- cutree(hc6, k = 10)
+#memb6
+```
+
+```{r}
+# get histogram for clusters
+#cat(memb2)
+#cat(memb4)
+#cat(memb6)
+
+hist(memb2)
+hist(memb4)
+hist(memb6)
+```
+
+```{r}
+# get heatmaps for three methods
+# set labels as cluster membership number : utility name
+row.names(diabetes.df.norm) <- paste(memb2, ": ", row.names(diabetes), sep = "")
+
+# plot heatmap 
+# rev() reverses the color mapping to large = dark
+heatmap(as.matrix(diabetes.df.norm), Colv = NA, hclustfun = hclust, 
+        col=rev(paste("grey",1:99,sep="")))
+
+# set labels as cluster membership number : utility name
+row.names(diabetes.df.norm) <- paste(memb4, ": ", row.names(diabetes), sep = "")
+
+# plot heatmap 
+# rev() reverses the color mapping to large = dark
+heatmap(as.matrix(diabetes.df.norm), Colv = NA, hclustfun = hclust, 
+        col=rev(paste("grey",1:99,sep="")))
+
+# set labels as cluster membership number : utility name
+row.names(diabetes.df.norm) <- paste(memb6, ": ", row.names(diabetes), sep = "")
+
+# plot heatmap 
+# rev() reverses the color mapping to large = dark
+heatmap(as.matrix(diabetes.df.norm), Colv = NA, hclustfun = hclust, 
+        col=rev(paste("grey",1:99,sep="")))
+
+```
+
+```{r}
+# new dataset with cluster results
+diabetes_new <- diabetes %>% mutate(HierCluster = memb2,HierCluster2 = memb4,HierCluster3 = memb6,outcome = diabetes.copy$Glucose)
+
+# Create theme for plots
+theme <- theme_test(base_family = "Times New Roman") + theme(plot.title = element_text(hjust = 0.5), 
+         legend.position = "bottom", panel.grid.minor = element_blank(), axis.ticks.x = element_blank(),
+         axis.ticks.y = element_blank(), panel.grid.major = element_blank())
+```
+
+```{r}
+# get boxplot of glucose for different clusters with three methods
+ggplot(diabetes_new, aes(x = as.factor(HierCluster), y = Glucose)) +
+  geom_boxplot(colour = "black") +
+  theme + labs(title = "Graph 11. Distribution of Glucose by cluster of average method", x = "cluster", y = "Glucose")
+
+ggplot(diabetes_new, aes(x = as.factor(HierCluster2), y = Glucose)) +
+  geom_boxplot(colour = "black") +
+  theme + labs(title = "Graph 11. Distribution of Glucose by cluster of complete method", x = "cluster", y = "Glucose")
+
+ggplot(diabetes_new, aes(x = as.factor(HierCluster3), y = Glucose)) +
+  geom_boxplot(colour = "black") +
+  theme + labs(title = "Graph 11. Distribution of Glucose by cluster of ward method", x = "cluster", y = "Glucose")
+```
+>>>>>>> e9616d6cc584e5505f8a2720ecdb6232f8b8f861
