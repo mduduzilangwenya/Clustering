@@ -126,10 +126,6 @@ table(diabetes$Age, diabetes$cluster)
 
 ```
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 948508bec70b5057251b32183fc234f71a9405b7
 Hcluster
 ```{r}
 diabetes <- diabetes.copy
@@ -265,9 +261,4 @@ ggplot(diabetes_new, aes(x = as.factor(HierCluster3), y = Glucose)) +
   geom_boxplot(colour = "black") +
   theme + labs(title = "Graph 11. Distribution of Glucose by cluster of ward method", x = "cluster", y = "Glucose")
 ```
-<<<<<<< HEAD
 
-
-
-=======
->>>>>>> 948508bec70b5057251b32183fc234f71a9405b7
