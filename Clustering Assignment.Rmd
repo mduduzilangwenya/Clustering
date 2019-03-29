@@ -107,22 +107,52 @@ plot(1:k.max, wss,
 3. K-Means Clustering - I chose 3 Groups
 
 ```{r}
-#create function
-dia.summ <- function(df, grps) {
-  aggregate(df, list(grps), function(x) mean(as.numeric(x)))  
-}
 
 # Find 2  groups
 # ==========        # because starting assignments are random
-dia.k3 <- kmeans(diabetes$Glucose , centers=3, nstart = 50, iter.max = 20 )
+dia.k3 <- kmeans(diabetes , centers=3, nstart = 50, iter.max = 20 )
 
 #add cluster back to dataframe
 diabetes$cluster <- dia.k3$cluster
 
-# analyze cluster 
-table(diabetes$Outcome, diabetes$cluster)
-table(diabetes$Age, diabetes$cluster)
+table(diabetes$Insulin, diabetes$cluster)
 
+```
+
+# plotting 
+
+```{r}
+#plot glucose and BMI
+ggplot(diabetes, aes(Insulin, Insulin, col = factor(cluster))) + 
+  geom_point(stat = "identity")
+```
+
+```{r}
+
+#plot glucose and pregnancies
+ggplot(diabetes, aes(Glucose, Insulin, col = factor(cluster))) + 
+  geom_point(stat = "identity")
+
+```
+
+```{r}
+#plot blood pressue and insulin
+ggplot(diabetes, aes(BloodPressure, Insulin, col = factor(cluster))) + 
+  geom_point(stat = "identity")
+```
+
+
+
+```{r}
+#plot  Age and insulin
+ggplot(diabetes, aes(Age, Insulin, col = factor(cluster))) + 
+  geom_point(stat = "identity")
+```
+
+```{r}
+#plot BMI and insulin
+ggplot(diabetes, aes(BMI, Insulin, col = factor(cluster))) + 
+  geom_point(stat = "identity")
 
 ```
 
