@@ -126,10 +126,13 @@ table(diabetes$Age, diabetes$cluster)
 
 ```
 
+<<<<<<< HEAD
 
 <<<<<<< HEAD
 
 =======
+=======
+>>>>>>> 7dc882b010085efe2dd5b3c4cc336fbe0c1259ae
 Hcluster
 ```{r}
 diabetes <- diabetes.copy
