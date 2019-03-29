@@ -74,69 +74,56 @@ diabetes<- as_tibble(diabetes)
 
 K-Means Clustering
 
+1. Scaling 
 
 ```{r}
-# K-means clustering
 # ==========
-dia.df.num = model.matrix(~ Pregnancies + factor(gender) + Glucose +
-                            BloodPressure + SkinThickness + Insulin + 
-                            BMI + factor(Age) _ factor(Outcome),  data = diabetes)
+dia.df.num = model.matrix(~ Pregnancies + Glucose + BMI + DiabetesPedigreeFunction +
+                            Age + BloodPressure + SkinThickness + Insulin + 
+                            + factor(Outcome),  data = diabetes)
 
-## Scaling the data
-####################
+scaled_data = scale(dia.df.num[,-1])
 
-scaled_data = scale(seg.df.num[,-1])
+```
 
+2. Choose Number of Clusters- Use Within Sum of Squares (wss)
+```{r}
 ## How many clusters to choose?
 ## ============================
 k.max <- 15
 wss <- sapply(1:k.max, 
-              function(k){kmeans(scaled_data, k, nstart=50,iter.max = 20 )$tot.withinss})
+              function(k){kmeans(diabetes$Glucose, k, nstart=50,iter.max = 20 )$tot.withinss})
 wss
+
 plot(1:k.max, wss,
      type="b", pch = 19, frame = FALSE, 
      xlab="Number of clusters K",
      ylab="Total within-clusters sum of squares")
 
-
-# Find the K-means groups
-# ==========        # because starting assignments are random
-seg.k3 <- kmeans(scaled_data, centers=3, nstart = 50, iter.max = 20 )
-
-seg.summ(seg.df.num, seg.k3$cluster)
-
-seg.k4 <- kmeans(scaled_data, centers=4, nstart = 50, iter.max = 20 )
-
-seg.summ(seg.df.num, seg.k4$cluster)
-
-
 ```
 
 
+3. K-Means Clustering - I chose 3 Groups
 
 ```{r}
+#create function
+dia.summ <- function(df, grps) {
+  aggregate(df, list(grps), function(x) mean(as.numeric(x)))  
+}
 
-# 2 clusters
-k2 <- kmeans(xtab, 2)
+# Find 2  groups
+# ==========        # because starting assignments are random
+dia.k3 <- kmeans(diabetes$Glucose , centers=3, nstart = 50, iter.max = 20 )
 
-# 3 clusters
-k3 <- kmeans(xtab, 3)
+#add cluster back to dataframe
+diabetes$cluster <- dia.k3$cluster
 
-# 4 clusters
-k4 <- kmeans(xtab, 4)
-
-# 5 clusters
-k5 <- kmeans(xtab, 5)
-
-# add 3-cluster to dataframe
-xtab$Clusters <- as.factor(k3$cluster)
-
-#sort by average revenue and rank number in X1
-xtab <- xtab %>% arrange(REVCHRGS)
-xtab$X1 <- seq.int(nrow(xtab))
-
+# analyze cluster 
+table(diabetes$Outcome, diabetes$cluster)
+table(diabetes$Age, diabetes$cluster)
 
 
 ```
+
 
 
