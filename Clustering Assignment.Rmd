@@ -189,7 +189,7 @@ hc5 <- hclust(d.norm, method = "centroid")
 plot(hc5, main = "Centroid Linkage Clustering", hang = -1, labels=FALSE)
 
 hc6 <- hclust(d.norm, method = "ward.D")
-plot(hc6, main = "Word.D Linkage Clustering", hang = -1, labels=FALSE)
+plot(hc6, main = "Ward.D Linkage Clustering", hang = -1, labels=FALSE)
 ```
 
 
@@ -224,14 +224,14 @@ fviz_dend(hc6, k = 10,
 
 ```{r}
 # get cluster number
-memb2 <- cutree(hc2, k = 13)
-dunn(d.norm, memb2)
+average <- cutree(hc2, k = 13)
+dunn(d.norm, average)
 #memb2
-memb4 <- cutree(hc4, k = 8)
-dunn(d.norm, memb4)
+complete <- cutree(hc4, k = 8)
+dunn(d.norm, complete)
 #memb4
-memb6 <- cutree(hc6, k = 10)
-dunn(d.norm, memb6)
+Ward <- cutree(hc6, k = 10)
+dunn(d.norm, Ward)
 #memb6
 ```
 
@@ -241,9 +241,9 @@ dunn(d.norm, memb6)
 #cat(memb4)
 #cat(memb6)
 
-hist(memb2)
-hist(memb4)
-hist(memb6)
+hist(average)
+hist(complete)
+hist(Ward)
 ```
 
 ```{r}
