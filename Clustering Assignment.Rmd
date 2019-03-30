@@ -70,6 +70,8 @@ diabetes <- diabetes %>%
          SkinThickness = "newSkin")
 
 diabetes<- as_tibble(diabetes)
+diabetes.copy<-diabetes
+
 ```
 
 
@@ -158,16 +160,15 @@ ggplot(diabetes, aes(BMI, Insulin, col = factor(cluster))) +
 
 Hcluster
 ```{r}
-diabetes <- diabetes.copy
-
+diabetes<-diabetes.copy
 # delete outcome. take glucose as target
-diabetes <- diabetes %>% select(-"Outcome")
+diabetes <- diabetes%>% select(-"Outcome")
 
 # normalize input variables
 diabetes.df.norm <- sapply(diabetes, scale)
 
 # add row names: 
-row.names(diabetes.df.norm) <- row.names(diabetes) # compute normalized distance based on variables Sales and FuelCost
+row.names(diabetes.df.norm) <- row.names(diabetes) 
 d.norm <- dist(diabetes.df.norm, method = "euclidean")  
 
 # in hclust() set argument method =  
@@ -218,13 +219,19 @@ fviz_dend(hc6, k = 10,
 )
 ```
 
+
+
+
 ```{r}
 # get cluster number
 memb2 <- cutree(hc2, k = 13)
+dunn(d.norm, memb2)
 #memb2
 memb4 <- cutree(hc4, k = 8)
+dunn(d.norm, memb4)
 #memb4
 memb6 <- cutree(hc6, k = 10)
+dunn(d.norm, memb6)
 #memb6
 ```
 
@@ -281,14 +288,14 @@ theme <- theme_test(base_family = "Times New Roman") + theme(plot.title = elemen
 # get boxplot of glucose for different clusters with three methods
 ggplot(diabetes_new, aes(x = as.factor(HierCluster), y = Glucose)) +
   geom_boxplot(colour = "black") +
-  theme + labs(title = "Graph 11. Distribution of Glucose by cluster of average method", x = "cluster", y = "Glucose")
+  theme + labs(title = "Distribution of Glucose by cluster of average method", x = "cluster", y = "Glucose")
 
 ggplot(diabetes_new, aes(x = as.factor(HierCluster2), y = Glucose)) +
   geom_boxplot(colour = "black") +
-  theme + labs(title = "Graph 11. Distribution of Glucose by cluster of complete method", x = "cluster", y = "Glucose")
+  theme + labs(title = "Distribution of Glucose by cluster of complete method", x = "cluster", y = "Glucose")
 
 ggplot(diabetes_new, aes(x = as.factor(HierCluster3), y = Glucose)) +
   geom_boxplot(colour = "black") +
-  theme + labs(title = "Graph 11. Distribution of Glucose by cluster of ward method", x = "cluster", y = "Glucose")
+  theme + labs(title = "Distribution of Glucose by cluster of ward method", x = "cluster", y = "Glucose")
 ```
 
