@@ -12,6 +12,8 @@ library(cluster)
 library(tidyverse)
 library(NbClust)
 library(factoextra)
+library(clValid)
+library(writexl)
 ```
 
 ### I. Data cleaning and impution
@@ -80,6 +82,7 @@ K-Means Clustering
 1. Scaling 
 
 ```{r}
+summary(diabetes)
 # ==========
 dia.df.num = model.matrix(~ Pregnancies + Glucose + BMI + DiabetesPedigreeFunction +
                             Age + BloodPressure + SkinThickness + Insulin + 
@@ -191,29 +194,96 @@ plot(hc5, main = "Centroid Linkage Clustering", hang = -1, labels=FALSE)
 hc6 <- hclust(d.norm, method = "ward.D")
 plot(hc6, main = "Ward.D Linkage Clustering", hang = -1, labels=FALSE)
 ```
+###compare and choose best clustering model with linkage and k
+```{r}
+single=rep(0,6)
+for (i in 1:15)
+{memb1<-cutree(hc1,k=i)
+single[i]=dunn(d.norm,memb1)}
+
+average=rep(0,6)
+for (i in 1:15)
+{memb2<-cutree(hc2,k=i)
+average[i]=dunn(d.norm,memb2)}
+
+median=rep(0,6)
+for (i in 1:15)
+{memb3<-cutree(hc3,k=i)
+median[i]=dunn(d.norm,memb3)}
+
+complete=rep(0,6)
+for (i in 1:15)
+{memb4<-cutree(hc4,k=i)
+complete[i]=dunn(d.norm,memb4)}
+
+centroid=rep(0,6)
+for (i in 1:15)
+{memb5<-cutree(hc5,k=i)
+centroid[i]=dunn(d.norm,memb5)}
+
+ward.D=rep(0,15)
+for (i in 1:15)
+{memb6<-cutree(hc6,k=i)
+ward.D[i]=dunn(d.norm,memb6)}
+
+library(knitr)
+dun<-data.frame(single,average,median,complete,centroid,ward.D) %>%round(2) 
+k<-(1:15)
+dunn_result<-cbind(k,dun)
+library(writexl)
+write_xlsx(x = dunn_result, path = "dunn_result.xlsx", col_names = TRUE)
+```
+
+####plot the histogram of clusters to decide the k
+```{r}
+# ward clusters are more evenly 
+
+
+for (i in 1:3)
+{memb2<-cutree(hc2,k=i)
+hist(memb2)}
+
+memb2<-cutree(hc2,k=2)
+hist(memb2)
+
+for (i in 1:3)
+{memb4<-cutree(hc4,k=i)
+hist(memb4)}
+
+memb4<-cutree(hc4,k=2)
+hist(memb4)
+
+for (i in 1:3)
+{memb6<-cutree(hc6,k=i)
+hist(memb6)}
+
+memb6<-cutree(hc6,k=2)
+hist(memb6)
+
+```
 
 
 ```{r}
 # trees of method average, complete, ward.d are more clear, so we take those three
 # different colors refer to different clusters
 #head(colors()) 
-fviz_dend(hc2, k = 13, 
-          cex = 0.5, 
-          k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07", "#A52A2A","#FF4040","#EE3B3B","#8B2323","#CDAA7D","#98F5FF","#7FFF00","#66CD00","#53868B"),
-          color_labels_by_k = TRUE, 
-          rect = TRUE          
-)
+# fviz_dend(hc2, k = 13, 
+#           cex = 0.5, 
+#           k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07", "#A52A2A","#FF4040","#EE3B3B","#8B2323","#CDAA7D","#98F5FF","#7FFF00","#66CD00","#53868B"),
+#           color_labels_by_k = TRUE, 
+#           rect = TRUE          
+# )
+# 
+# fviz_dend(hc4, k = 8, 
+#           cex = 0.5, 
+#           k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07", "#A52A2A","#FF4040","#EE3B3B","#8B2323"),
+#           color_labels_by_k = TRUE, 
+#           rect = TRUE          
+# )
 
-fviz_dend(hc4, k = 8, 
+fviz_dend(hc6, k = 2, 
           cex = 0.5, 
-          k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07", "#A52A2A","#FF4040","#EE3B3B","#8B2323"),
-          color_labels_by_k = TRUE, 
-          rect = TRUE          
-)
-
-fviz_dend(hc6, k = 10, 
-          cex = 0.5, 
-          k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07", "#A52A2A","#FF4040","#EE3B3B","#8B2323","#66CD00","#53868B"),
+          k_colors = c("#2E9FDF", "#00AFBB"),
           color_labels_by_k = TRUE, 
           rect = TRUE          
 )
@@ -223,23 +293,23 @@ fviz_dend(hc6, k = 10,
 
 
 ```{r}
-# get cluster number
-average <- cutree(hc2, k = 13)
-dunn(d.norm, average)
-#memb2
-complete <- cutree(hc4, k = 8)
-dunn(d.norm, complete)
-#memb4
-Ward <- cutree(hc6, k = 10)
-dunn(d.norm, Ward)
-#memb6
+# # get cluster number
+# average <- cutree(hc2, k = 13)
+# dunn(d.norm, average)
+# #memb2
+# complete <- cutree(hc4, k = 8)
+# dunn(d.norm, complete)
+# #memb4
+# Ward <- cutree(hc6, k = 10)
+# dunn(d.norm, Ward)
+# #memb6
 ```
 
 ```{r}
-# get histogram for clusters
-#cat(memb2)
-#cat(memb4)
-#cat(memb6)
+#get histogram for clusters
+cat(memb2)
+cat(memb4)
+cat(memb6)
 
 hist(average)
 hist(complete)
@@ -248,7 +318,7 @@ hist(Ward)
 
 ```{r}
 # get heatmaps for three methods
-# set labels as cluster membership number : utility name
+
 row.names(diabetes.df.norm) <- paste(memb2, ": ", row.names(diabetes), sep = "")
 
 # plot heatmap 
@@ -276,7 +346,7 @@ heatmap(as.matrix(diabetes.df.norm), Colv = NA, hclustfun = hclust,
 
 ```{r}
 # new dataset with cluster results
-diabetes_new <- diabetes %>% mutate(HierCluster = memb2,HierCluster2 = memb4,HierCluster3 = memb6,outcome = diabetes.copy$Glucose)
+diabetes_new <- diabetes.copy %>% mutate(HierCluster=memb6)
 
 # Create theme for plots
 theme <- theme_test(base_family = "Times New Roman") + theme(plot.title = element_text(hjust = 0.5), 
@@ -285,17 +355,81 @@ theme <- theme_test(base_family = "Times New Roman") + theme(plot.title = elemen
 ```
 
 ```{r}
+str(diabetes_new)
 # get boxplot of glucose for different clusters with three methods
-ggplot(diabetes_new, aes(x = as.factor(HierCluster), y = Glucose)) +
+##Glucose
+ggplot(diabetes_new, aes(x = as.factor(HierCluster), y = Glucose   )) +
   geom_boxplot(colour = "black") +
-  theme + labs(title = "Distribution of Glucose by cluster of average method", x = "cluster", y = "Glucose")
+  theme + labs(title = "Distribution of Glucose by cluster ", x = "cluster", y = "Glucose")
+#BMI
+ggplot(diabetes_new, aes(x = as.factor(HierCluster), y = BMI   )) +
+  geom_boxplot(colour = "black") +
+  theme + labs(title = "Distribution of BMI by cluster ", x = "cluster", y = "BMI")
 
-ggplot(diabetes_new, aes(x = as.factor(HierCluster2), y = Glucose)) +
+#age
+ggplot(diabetes_new, aes(x = as.factor(HierCluster), y = Age  )) +
   geom_boxplot(colour = "black") +
-  theme + labs(title = "Distribution of Glucose by cluster of complete method", x = "cluster", y = "Glucose")
+  theme + labs(title = "Distribution of age by cluster ", x = "cluster", y = "Age")
 
-ggplot(diabetes_new, aes(x = as.factor(HierCluster3), y = Glucose)) +
+#DiabetesPedigreeFunction
+ggplot(diabetes_new, aes(x = as.factor(HierCluster), y = DiabetesPedigreeFunction  )) +
   geom_boxplot(colour = "black") +
-  theme + labs(title = "Distribution of Glucose by cluster of ward method", x = "cluster", y = "Glucose")
+  theme + labs(title = "Distribution of DiabetesPedigreeFunction by cluster ", x = "cluster", y = "DiabetesPedigreeFunction")
+
+#BloodPressure
+ggplot(diabetes_new, aes(x = as.factor(HierCluster), y = BloodPressure  )) +
+  geom_boxplot(colour = "black") +
+  theme + labs(title = "Distribution of BloodPressure by cluster ", x = "cluster", y = "BloodPressure")
+
+#Insulin
+ggplot(diabetes_new, aes(x = as.factor(HierCluster), y =Insulin  )) +
+  geom_boxplot(colour = "black") +
+  theme + labs(title = "Distribution of Insulin by cluster ", x = "cluster", y = "Insulin")
+
+# ggplot(diabetes_new, aes(x = as.factor(HierCluster2), y = Glucose)) +
+#   geom_boxplot(colour = "black") +
+#   theme + labs(title = "Distribution of Glucose by cluster of complete method", x = "cluster", y = "Glucose")
+# 
+# ggplot(diabetes_new, aes(x = as.factor(HierCluster3), y = Glucose)) +
+#   geom_boxplot(colour = "black") +
+#   theme + labs(title = "Distribution of Glucose by cluster of ward method", x = "cluster", y = "Glucose")
+
+cluster_outcome<-diabetes_new %>% group_by(HierCluster,Outcome) %>% summarise(n=n())
+write_xlsx(cluster_outcome, path =  "cluster_outcome.xlsx",col_names = TRUE,
+  format_headers = TRUE)
+
+#Outcome ~ Glucose +  BMI + Age+DiabetesPedigreeFunction + BloodPressure 
+
 ```
 
+
+```{r}
+#plot BMI and glucose
+ggplot(diabetes_new, aes(BMI, Glucose, col = factor(HierCluster))) + 
+  geom_point(stat = "identity")+theme
+```
+
+```{r}
+#plot Age and glucose
+ggplot(diabetes_new, aes(Age, Glucose, col = factor(HierCluster))) + 
+  geom_point(stat = "identity")+theme
+```
+```{r}
+#DiabetesPedigreeFunction and glucose
+ggplot(diabetes_new, aes(DiabetesPedigreeFunction, Glucose, col = factor(HierCluster))) + 
+  geom_point(stat = "identity")+theme
+```
+
+
+```{r}
+#plot insulin and glucose
+ggplot(diabetes_new, aes(Insulin, Glucose, col = factor(HierCluster))) + 
+  geom_point(stat = "identity")+theme
+```
+
+
+```{r}
+#plot BloodPressure and glucose
+ggplot(diabetes_new, aes(BloodPressure, Glucose, col = factor(HierCluster))) + 
+  geom_point(stat = "identity")+theme
+```
