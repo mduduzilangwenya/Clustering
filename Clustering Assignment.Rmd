@@ -86,10 +86,11 @@ diabetes.copy<-diabetes
 
 1. Scaling 
 ```{r}
+diabetes_kmeans <- diabetes
 # ==========
 dia.df.num = model.matrix(~ Pregnancies + Glucose + BMI + DiabetesPedigreeFunction +
-                            Age + BloodPressure + SkinThickness + Insulin + 
-                            + factor(Outcome),  data = diabetes)
+                            Age + BloodPressure + SkinThickness + Insulin 
+                            ,  data = diabetes_kmeans)
 scaled_data = scale(dia.df.num[,-1])
 ```
 
@@ -99,7 +100,7 @@ scaled_data = scale(dia.df.num[,-1])
 ## ============================
 k.max <- 15
 wss <- sapply(1:k.max, 
-              function(k){kmeans(diabetes$Glucose, k, nstart=50,iter.max = 20 )$tot.withinss})
+              function(k){kmeans(diabetes_kmeans$Glucose, k, nstart=50,iter.max = 20 )$tot.withinss})
 wss
 
 plot(1:k.max, wss,
@@ -113,117 +114,171 @@ plot(1:k.max, wss,
 
 # Find 2  groups
 # ==========        # because starting assignments are random
-dia.k3 <- kmeans(diabetes , centers=3, nstart = 50, iter.max = 20 )
+dia.k2 <- kmeans(diabetes_kmeans , centers=2, nstart = 50, iter.max = 20 )
 
 #add cluster back to dataframe
-diabetes$cluster <- dia.k3$cluster
+diabetes_kmeans$cluster <- dia.k2$cluster
 
-table(diabetes$Insulin, diabetes$cluster)
+#rename levels 
+diabetes_kmeans$cluster <- gsub(1, 0, diabetes_kmeans$cluster,ignore.case=T)
+diabetes_kmeans$cluster <- gsub(2, 1, diabetes_kmeans$cluster,ignore.case=T)
+
+#change data types
+diabetes_kmeans$cluster <- as.factor(diabetes_kmeans$cluster)
+diabetes_kmeans$Outcome <- as.factor(diabetes_kmeans$Outcome)
+
+
+library(caret)
+confusionMatrix(diabetes_kmeans$Outcome, diabetes_kmeans$cluster)
+
 ```
 
 # plotting 
 ```{r}
 #plot glucose and BMI
-ggplot(diabetes, aes(Insulin, Insulin, col = factor(cluster))) + 
+ggplot(diabetes_kmeans, aes(Insulin, Insulin, col = factor(cluster))) + 
   geom_point(stat = "identity")
 ```
 
 ```{r}
 #plot glucose and pregnancies
-ggplot(diabetes, aes(Glucose, Insulin, col = factor(cluster))) + 
+ggplot(diabetes_kmeans, aes(Glucose, Insulin, col = factor(cluster))) + 
   geom_point(stat = "identity")
 ```
 
 ```{r}
 #plot blood pressue and insulin
-ggplot(diabetes, aes(BloodPressure, Insulin, col = factor(cluster))) + 
+ggplot(diabetes_kmeans, aes(BloodPressure, Insulin, col = factor(cluster))) + 
   geom_point(stat = "identity")
 ```
 
 ```{r}
 #plot  Age and insulin
-ggplot(diabetes, aes(Age, Insulin, col = factor(cluster))) + 
+ggplot(diabetes_kmeans, aes(Age, Insulin, col = factor(cluster))) + 
   geom_point(stat = "identity")
 ```
 
 ```{r}
 #plot BMI and insulin
-ggplot(diabetes, aes(BMI, Insulin, col = factor(cluster))) + 
+ggplot(diabetes_kmeans, aes(BMI, Insulin, col = factor(cluster))) + 
   geom_point(stat = "identity")
 ```
+
 
 #######################################################################################
 
 ### 2. Hcluster
 ```{r}
-diabetes<-diabetes.copy
+diabetes_hclust <-diabetes.copy
 # delete outcome. take glucose as target
-diabetes <- diabetes%>% dplyr::select(-"Outcome")
+diabetes_hclust <- diabetes_hclust%>% dplyr::select(-"Outcome")
 
 # normalize input variables
-diabetes.df.norm <- sapply(diabetes, scale)
+diabetes_hclust.df.norm <- as.data.frame(sapply(diabetes_hclust, scale))
+
+#diabetes_hclust.df.norm$Outcome <- diabetes_hclust.copy$Outcome
 
 # add row names: 
-row.names(diabetes.df.norm) <- row.names(diabetes) 
-d.norm <- dist(diabetes.df.norm, method = "euclidean")  
+row.names(diabetes_hclust.df.norm) <- row.names(diabetes_hclust) 
+dhclust.norm <- dist(diabetes_hclust.df.norm, method = "euclidean")  
 
 # in hclust() set argument method =  
 # to "ward.D", "single", "complete", "average", "median", or "centroid",  246 work
-hc1 <- hclust(d.norm, method = "single")
+hc1 <- hclust(dhclust.norm, method = "single")
 plot(hc1, main = "Single Linkage Clustering", hang = -1, labels=FALSE)
 
-hc2 <- hclust(d.norm, method = "average")
+hc2 <- hclust(dhclust.norm, method = "average")
 plot(hc2, main = "Average Linkage Clustering", hang = -1, labels=FALSE)
 
-hc3 <- hclust(d.norm, method = "median")
+hc3 <- hclust(dhclust.norm, method = "median")
 plot(hc3, main = "Median Linkage Clustering", hang = -1, labels=FALSE)
 
-hc4 <- hclust(d.norm, method = "complete")
+hc4 <- hclust(dhclust.norm, method = "complete")
 plot(hc4, main = "Complete Linkage Clustering", hang = -1, labels=FALSE)
 
-hc5 <- hclust(d.norm, method = "centroid")
+hc5 <- hclust(dhclust.norm, method = "centroid")
 plot(hc5, main = "Centroid Linkage Clustering", hang = -1, labels=FALSE)
 
-hc6 <- hclust(d.norm, method = "ward.D")
+hc6 <- hclust(dhclust.norm, method = "ward.D")
 plot(hc6, main = "Ward.D Linkage Clustering", hang = -1, labels=FALSE)
 ```
+
+
+```{r}
+
+# methods to assess
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+
+# function to compute coefficient
+ac <- function(x) {
+  agnes(diabetes_hclust.df.norm, method = x)$ac
+}
+
+map_dbl(m, ac)
+
+```
+
+
+```{r}
+hcw <- agnes(dhclust.norm, method = "ward")
+
+pltree(hcw, cex = 0.6, hang = -1, main = "Dendrogram of agnes") 
+```
+
+```{r}
+# Cut tree into 4 groups
+grouping <- cutree(hcw, k = 2)
+
+diabetes_hclust$Outcome <- diabetes.copy$Outcome
+diabetes_hclust$OutcomeClust <- grouping
+
+#rename levels
+diabetes_hclust$OutcomeClust <- gsub(2, 0, diabetes_hclust$OutcomeClust,ignore.case=T)
+
+#change data types
+diabetes_hclust$OutcomeClust <- as.factor(diabetes_hclust$OutcomeClust)
+diabetes_hclust$Outcome <- as.factor(diabetes_hclust$Outcome)
+
+#confusion Matrix
+confusionMatrix(diabetes_hclust$Outcome, diabetes_hclust$OutcomeClust)
+```
+
 
 ```{r}
 # trees of method average, complete, ward.d are more clear, so we take those three
 # different colors refer to different clusters
 #head(colors())
-fviz_dend(hc2, k = 13,
+fviz_dend(hcw, k = 2,
           cex = 0.5,
-          k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07", "#A52A2A","#FF4040","#EE3B3B","#8B2323","#CDAA7D","#98F5FF","#7FFF00","#66CD00","#53868B"),
+          k_colors = c("#2E9FDF","#53868B"),
           color_labels_by_k = TRUE,
-          rect = TRUE
-)
+          rect = TRUE)
 
 fviz_dend(hc4, k = 8,
           cex = 0.5,
           k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07", "#A52A2A","#FF4040","#EE3B3B","#8B2323"),
           color_labels_by_k = TRUE,
-          rect = TRUE
-)
+          rect = TRUE)
 
 fviz_dend(hc6, k = 10,
           cex = 0.5,
           k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07", "#A52A2A","#FF4040","#EE3B3B","#8B2323","#66CD00","#53868B"),
           color_labels_by_k = TRUE,
-          rect = TRUE
-)
+          rect = TRUE)
 ```
+
 
 ```{r}
 # get cluster number
 average <- cutree(hc2, k = 13)
-dunn(d.norm, average)
+dunn(dhclust.norm, average)
 #memb2
 complete <- cutree(hc4, k = 8)
-dunn(d.norm, complete)
+dunn(dhclust.norm, complete)
 #memb4
 Ward <- cutree(hc6, k = 10)
-dunn(d.norm, Ward)
+dunn(dhclust.norm, Ward)
 #memb6
 ```
 
@@ -241,34 +296,34 @@ hist(Ward)
 ```{r}
 # get heatmaps for three methods
 # set labels as cluster membership number : utility name
-row.names(diabetes.df.norm) <- paste(average, ": ", row.names(diabetes), sep = "")
+row.names(diabetes_hclust.df.norm) <- paste(average, ": ", row.names(diabetes_hclust), sep = "")
 
 # plot heatmap 
 # rev() reverses the color mapping to large = dark
-heatmap(as.matrix(diabetes.df.norm), Colv = NA, hclustfun = hclust, 
+heatmap(as.matrix(diabetes_hclust.df.norm), Colv = NA, hclustfun = hclust, 
         col=rev(paste("grey",1:99,sep="")))
 
 # set labels as cluster membership number : utility name
-row.names(diabetes.df.norm) <- paste(complete, ": ", row.names(diabetes), sep = "")
+row.names(diabetes_hclust.df.norm) <- paste(complete, ": ", row.names(diabetes_hclust), sep = "")
 
 # plot heatmap 
 # rev() reverses the color mapping to large = dark
-heatmap(as.matrix(diabetes.df.norm), Colv = NA, hclustfun = hclust, 
+heatmap(as.matrix(diabetes_hclust.df.norm), Colv = NA, hclustfun = hclust, 
         col=rev(paste("grey",1:99,sep="")))
 
 # set labels as cluster membership number : utility name
-row.names(diabetes.df.norm) <- paste(Ward, ": ", row.names(diabetes), sep = "")
+row.names(diabetes_hclust.df.norm) <- paste(Ward, ": ", row.names(diabetes_hclust), sep = "")
 
 # plot heatmap 
 # rev() reverses the color mapping to large = dark
-heatmap(as.matrix(diabetes.df.norm), Colv = NA, hclustfun = hclust, 
+heatmap(as.matrix(diabetes_hclust.df.norm), Colv = NA, hclustfun = hclust, 
         col=rev(paste("grey",1:99,sep="")))
 
 ```
 
 ```{r}
 # new dataset with cluster results
-diabetes_new <- diabetes %>% mutate(HierCluster = average,HierCluster2 = complete,HierCluster3 = Ward,outcome = diabetes.copy$Glucose)
+diabeteshclust_new <- diabetes %>% mutate(HierCluster = average, HierCluster2 = complete,HierCluster3 = Ward,outcome = diabetes.copy$Glucose)
 
 # Create theme for plots
 theme <- theme_test(base_family = "Times New Roman") + theme(plot.title = element_text(hjust = 0.5), 
@@ -278,15 +333,15 @@ theme <- theme_test(base_family = "Times New Roman") + theme(plot.title = elemen
 
 ```{r}
 # get boxplot of glucose for different clusters with three methods
-ggplot(diabetes_new, aes(x = as.factor(HierCluster), y = Glucose)) +
+ggplot(diabeteshclust_new, aes(x = as.factor(HierCluster), y = Glucose)) +
   geom_boxplot(colour = "black") +
   theme + labs(title = "Distribution of Glucose by cluster of average method", x = "cluster", y = "Glucose")
 
-ggplot(diabetes_new, aes(x = as.factor(HierCluster2), y = Glucose)) +
+ggplot(diabeteshclust_new, aes(x = as.factor(HierCluster2), y = Glucose)) +
   geom_boxplot(colour = "black") +
   theme + labs(title = "Distribution of Glucose by cluster of complete method", x = "cluster", y = "Glucose")
 
-ggplot(diabetes_new, aes(x = as.factor(HierCluster3), y = Glucose)) +
+ggplot(diabeteshclust_new, aes(x = as.factor(HierCluster3), y = Glucose)) +
   geom_boxplot(colour = "black") +
   theme + labs(title = "Distribution of Glucose by cluster of ward method", x = "cluster", y = "Glucose")
 ```
@@ -300,7 +355,7 @@ ggplot(diabetes_new, aes(x = as.factor(HierCluster3), y = Glucose)) +
 (1) average
 ```{r}
 data <- diabetes.copy
-data$KMeansCluster <- dia.k3$cluster
+data$KMeansCluster <- dia.k2$cluster
 data$HierCluster <- average
 
 # CHANGE DATA TYPE
@@ -317,7 +372,7 @@ test.df = subset(data,randOrder > .8 * nrow(data))
 (2) complete
 ```{r}
 data2 <- diabetes.copy
-data2$KMeansCluster <- dia.k3$cluster
+data2$KMeansCluster <- dia.k2$cluster
 data2$HierCluster <- complete
 
 # CHANGE DATA TYPE
@@ -334,7 +389,7 @@ test.df2 = subset(data2,randOrder > .8 * nrow(data2))
 (3) Ward
 ```{r}
 data3 <- diabetes.copy
-data3$KMeansCluster <- dia.k3$cluster
+data3$KMeansCluster <- dia.k2$cluster
 data3$HierCluster <- Ward
 
 # CHANGE DATA TYPE
