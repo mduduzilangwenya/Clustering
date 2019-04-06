@@ -94,7 +94,8 @@ diabetes_kmeans <- diabetes
 dia.df.num = model.matrix(~ Pregnancies + Glucose + BMI + DiabetesPedigreeFunction +
                             Age + BloodPressure + SkinThickness + Insulin 
                             ,  data = diabetes_kmeans)
-scaled_data = scale(dia.df.num[,-1])
+scaled_data = data.frame(scale(dia.df.num[,-1]))
+
 ```
 
 2. Choose Number of Clusters- Use Within Sum of Squares (wss)
@@ -103,7 +104,7 @@ scaled_data = scale(dia.df.num[,-1])
 ## ============================
 k.max <- 15
 wss <- sapply(1:k.max, 
-              function(k){kmeans(diabetes_kmeans$Glucose, k, nstart=50,iter.max = 20 )$tot.withinss})
+              function(k){kmeans(scaled_data, k, nstart=50,iter.max = 1000 )$tot.withinss})
 wss
 
 plot(1:k.max, wss,
@@ -114,11 +115,30 @@ plot(1:k.max, wss,
 
 3. K-Means Clustering - I chose 3 Groups
 ```{r}
-
+set.seed(1234)
 # Find 2  groups
 # ==========        # because starting assignments are random
-dia.k2 <- kmeans(diabetes_kmeans , centers=2, nstart = 50, iter.max = 20 )
+dia.k2 <- kmeans(scaled_data , centers=2, nstart = 50, iter.max = 20 )
 
+#visualize clusters
+fviz_cluster(dia.k2, data = scaled_data)
+
+#find out more about PCA
+library("FactoMineR")
+dia.pca <- PCA(scaled_data, graph = FALSE)
+
+# Contributions of variables on PC1
+fviz_pca_contrib(dia.pca, choice = "var", axes = 1)
+
+# Contributions of variables on PC2
+fviz_pca_contrib(dia.pca, choice = "var", axes = 2)
+
+# Total contribution on PC1 and PC2
+fviz_pca_contrib(dia.pca, choice = "var", axes = 1:2,  top = 5)
+
+```
+
+```{r}
 #add cluster back to dataframe
 diabetes_kmeans$cluster <- dia.k2$cluster
 
@@ -138,35 +158,33 @@ confusionMatrix(diabetes_kmeans$Outcome, diabetes_kmeans$cluster,positive = "1")
 
 # plotting 
 ```{r}
+
+diabetes_kmeans$cluster <- as.factor(diabetes_kmeans$cluster)
+
 #plot glucose and BMI
-ggplot(diabetes_kmeans, aes(Insulin, Insulin, col = factor(cluster))) + 
+ggplot(diabetes_kmeans, aes(Age, Pregnancies, col = cluster)) + 
+  geom_point(stat = "identity") +
+  labs(title = "Age vs Pregnancies by Cluster")
+
+
+
+#plot glucose and BMI
+ggplot(diabetes_kmeans, aes(Age, SkinThickness, col = factor(cluster))) + 
   geom_point(stat = "identity")
 ```
 
 ```{r}
 #plot glucose and pregnancies
-ggplot(diabetes_kmeans, aes(Glucose, Insulin, col = factor(cluster))) + 
-  geom_point(stat = "identity")
+ggplot(diabetes_kmeans, aes(Age, BMI, col =cluster)) + 
+  geom_point(stat = "identity") + labs(title = "Age vs BMI by cluster")
 ```
 
 ```{r}
 #plot blood pressue and insulin
-ggplot(diabetes_kmeans, aes(BloodPressure, Insulin, col = factor(cluster))) + 
-  geom_point(stat = "identity")
+ggplot(diabetes_kmeans, aes(BMI, Pregnancies, col = cluster)) + 
+  geom_point(stat = "identity") + 
+  labs("Pregnancies vs BMI by cluster")
 ```
-
-```{r}
-#plot  Age and insulin
-ggplot(diabetes_kmeans, aes(Age, Insulin, col = factor(cluster))) + 
-  geom_point(stat = "identity")
-```
-
-```{r}
-#plot BMI and insulin
-ggplot(diabetes_kmeans, aes(BMI, Insulin, col = factor(cluster))) + 
-  geom_point(stat = "identity")
-```
-
 
 #######################################################################################
 
