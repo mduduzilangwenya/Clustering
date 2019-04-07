@@ -222,7 +222,7 @@ dunn(d.norm, average)
 complete <- cutree(hc4, k = 8)
 dunn(d.norm, complete)
 #memb4
-Ward <- cutree(hc6, k = 10)
+Ward <- cutree(hc6, k = 2)
 dunn(d.norm, Ward)
 #memb6
 ```
@@ -403,13 +403,13 @@ corrplot3 <- corrplot(cor, method="color", col=col(200),
 
 ```{r}
 # create model with no predictors for bottom of search range
-glu.lm.null <- lm(Glucose ~1, data = train.df2)
-glu.lm <- lm(Glucose ~., data = train.df2)
+glu.lm.null <- lm(Glucose ~1, data = train.df3)
+glu.lm <- lm(Glucose ~., data = train.df3)
 
 # backward
 glu.lm.step_back <- step(glu.lm, direction = "backward")
-sum_back <- summary(glu.lm.step_back) 
-summary(glu.lm.step_back) 
+sum_back <- summary(glu.lm.step_back)
+summary(glu.lm.step_back)
 ```
 
 ```{r}
