@@ -415,7 +415,7 @@ heatmap(as.matrix(diabetes_hclust.df.norm), Colv = NA, hclustfun = hclust,
 row.names(diabetes_hclust.df.norm) <- paste(Ward, ": ", row.names(diabetes_hclust), sep = "")
 
 # plot heatmap 
-# rev() reverses the color mapping to large = dark 
+# rev() reverses the color mapping to large = dark
 heatmap(as.matrix(diabetes_hclust.df.norm), Colv = NA, hclustfun = hclust, 
         col=rev(paste("grey",1:99,sep="")))
 
