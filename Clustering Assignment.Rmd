@@ -13,12 +13,14 @@ library(tidyverse)
 library(NbClust)
 library(factoextra)
 library(clValid)
+library(writexl)
 library(corrplot)
 library(pROC)
 library(leaps)
 library(car)
 library(forecast)
 library(knitr)
+library(caret)
 ```
 
 ### I. Data cleaning and impution
@@ -86,11 +88,14 @@ diabetes.copy<-diabetes
 
 1. Scaling 
 ```{r}
+
+diabetes_kmeans <- diabetes
 # ==========
 dia.df.num = model.matrix(~ Pregnancies + Glucose + BMI + DiabetesPedigreeFunction +
-                            Age + BloodPressure + SkinThickness + Insulin + 
-                            + factor(Outcome),  data = diabetes)
-scaled_data = scale(dia.df.num[,-1])
+                            Age + BloodPressure + SkinThickness + Insulin 
+                            ,  data = diabetes_kmeans)
+scaled_data = data.frame(scale(dia.df.num[,-1]))
+
 ```
 
 2. Choose Number of Clusters- Use Within Sum of Squares (wss)
@@ -99,7 +104,7 @@ scaled_data = scale(dia.df.num[,-1])
 ## ============================
 k.max <- 15
 wss <- sapply(1:k.max, 
-              function(k){kmeans(diabetes$Glucose, k, nstart=50,iter.max = 20 )$tot.withinss})
+              function(k){kmeans(scaled_data, k, nstart=50,iter.max = 1000 )$tot.withinss})
 wss
 
 plot(1:k.max, wss,
@@ -110,128 +115,274 @@ plot(1:k.max, wss,
 
 3. K-Means Clustering - I chose 3 Groups
 ```{r}
-
+set.seed(1234)
 # Find 2  groups
 # ==========        # because starting assignments are random
-dia.k3 <- kmeans(diabetes , centers=3, nstart = 50, iter.max = 20 )
+dia.k2 <- kmeans(scaled_data , centers=2, nstart = 50, iter.max = 20 )
 
+#visualize clusters
+fviz_cluster(dia.k2, data = scaled_data)
+
+#find out more about PCA
+library("FactoMineR")
+dia.pca <- PCA(scaled_data, graph = FALSE)
+
+# Contributions of variables on PC1
+fviz_pca_contrib(dia.pca, choice = "var", axes = 1)
+
+# Contributions of variables on PC2
+fviz_pca_contrib(dia.pca, choice = "var", axes = 2)
+
+# Total contribution on PC1 and PC2
+fviz_pca_contrib(dia.pca, choice = "var", axes = 1:2,  top = 5)
+
+```
+
+```{r}
 #add cluster back to dataframe
-diabetes$cluster <- dia.k3$cluster
+diabetes_kmeans$cluster <- dia.k2$cluster
 
-table(diabetes$Insulin, diabetes$cluster)
+#rename levels 
+diabetes_kmeans$cluster <- gsub(1, 0, diabetes_kmeans$cluster,ignore.case=T)
+diabetes_kmeans$cluster <- gsub(2, 1, diabetes_kmeans$cluster,ignore.case=T)
+
+#change data types
+diabetes_kmeans$cluster <- as.factor(diabetes_kmeans$cluster)
+diabetes_kmeans$Outcome <- as.factor(diabetes_kmeans$Outcome)
+
+
+library(caret)
+confusionMatrix(diabetes_kmeans$Outcome, diabetes_kmeans$cluster,positive = "1")
+
 ```
 
 # plotting 
 ```{r}
+
+diabetes_kmeans$cluster <- as.factor(diabetes_kmeans$cluster)
+
 #plot glucose and BMI
-ggplot(diabetes, aes(Insulin, Insulin, col = factor(cluster))) + 
+ggplot(diabetes_kmeans, aes(Age, Pregnancies, col = cluster)) + 
+  geom_point(stat = "identity") +
+  labs(title = "Age vs Pregnancies by Cluster")
+
+
+
+#plot glucose and BMI
+ggplot(diabetes_kmeans, aes(Age, SkinThickness, col = factor(cluster))) + 
   geom_point(stat = "identity")
 ```
 
 ```{r}
 #plot glucose and pregnancies
-ggplot(diabetes, aes(Glucose, Insulin, col = factor(cluster))) + 
-  geom_point(stat = "identity")
+ggplot(diabetes_kmeans, aes(Age, BMI, col =cluster)) + 
+  geom_point(stat = "identity") + labs(title = "Age vs BMI by cluster")
 ```
 
 ```{r}
 #plot blood pressue and insulin
-ggplot(diabetes, aes(BloodPressure, Insulin, col = factor(cluster))) + 
-  geom_point(stat = "identity")
-```
-
-```{r}
-#plot  Age and insulin
-ggplot(diabetes, aes(Age, Insulin, col = factor(cluster))) + 
-  geom_point(stat = "identity")
-```
-
-```{r}
-#plot BMI and insulin
-ggplot(diabetes, aes(BMI, Insulin, col = factor(cluster))) + 
-  geom_point(stat = "identity")
+ggplot(diabetes_kmeans, aes(BMI, Pregnancies, col = cluster)) + 
+  geom_point(stat = "identity") + 
+  labs("Pregnancies vs BMI by cluster")
 ```
 
 #######################################################################################
 
 ### 2. Hcluster
 ```{r}
-diabetes<-diabetes.copy
+diabetes_hclust <-diabetes.copy
 # delete outcome. take glucose as target
-diabetes <- diabetes%>% dplyr::select(-"Outcome")
+diabetes_hclust <- diabetes_hclust%>% dplyr::select(-"Outcome")
 
 # normalize input variables
-diabetes.df.norm <- sapply(diabetes, scale)
+diabetes_hclust.df.norm <- as.data.frame(sapply(diabetes_hclust, scale))
+
+#diabetes_hclust.df.norm$Outcome <- diabetes_hclust.copy$Outcome
 
 # add row names: 
-row.names(diabetes.df.norm) <- row.names(diabetes) 
-d.norm <- dist(diabetes.df.norm, method = "euclidean")  
+row.names(diabetes_hclust.df.norm) <- row.names(diabetes_hclust) 
+dhclust.norm <- dist(diabetes_hclust.df.norm, method = "euclidean")  
 
 # in hclust() set argument method =  
 # to "ward.D", "single", "complete", "average", "median", or "centroid",  246 work
-hc1 <- hclust(d.norm, method = "single")
+hc1 <- hclust(dhclust.norm, method = "single")
 plot(hc1, main = "Single Linkage Clustering", hang = -1, labels=FALSE)
 
-hc2 <- hclust(d.norm, method = "average")
+hc2 <- hclust(dhclust.norm, method = "average")
 plot(hc2, main = "Average Linkage Clustering", hang = -1, labels=FALSE)
 
-hc3 <- hclust(d.norm, method = "median")
+hc3 <- hclust(dhclust.norm, method = "median")
 plot(hc3, main = "Median Linkage Clustering", hang = -1, labels=FALSE)
 
-hc4 <- hclust(d.norm, method = "complete")
+hc4 <- hclust(dhclust.norm, method = "complete")
 plot(hc4, main = "Complete Linkage Clustering", hang = -1, labels=FALSE)
 
-hc5 <- hclust(d.norm, method = "centroid")
+hc5 <- hclust(dhclust.norm, method = "centroid")
 plot(hc5, main = "Centroid Linkage Clustering", hang = -1, labels=FALSE)
 
-hc6 <- hclust(d.norm, method = "ward.D")
+hc6 <- hclust(dhclust.norm, method = "ward.D")
 plot(hc6, main = "Ward.D Linkage Clustering", hang = -1, labels=FALSE)
+```
+###compare and choose best clustering model with linkage and k
+```{r}
+single=rep(0,6)
+for (i in 1:15)
+{memb1<-cutree(hc1,k=i)
+single[i]=dunn(d.norm,memb1)}
+
+average=rep(0,6)
+for (i in 1:15)
+{memb2<-cutree(hc2,k=i)
+average[i]=dunn(d.norm,memb2)}
+
+median=rep(0,6)
+for (i in 1:15)
+{memb3<-cutree(hc3,k=i)
+median[i]=dunn(d.norm,memb3)}
+
+complete=rep(0,6)
+for (i in 1:15)
+{memb4<-cutree(hc4,k=i)
+complete[i]=dunn(d.norm,memb4)}
+
+centroid=rep(0,6)
+for (i in 1:15)
+{memb5<-cutree(hc5,k=i)
+centroid[i]=dunn(d.norm,memb5)}
+
+ward.D=rep(0,15)
+for (i in 1:15)
+{memb6<-cutree(hc6,k=i)
+ward.D[i]=dunn(d.norm,memb6)}
+
+library(knitr)
+dun<-data.frame(single,average,median,complete,centroid,ward.D) %>%round(2) 
+k<-(1:15)
+dunn_result<-cbind(k,dun)
+library(writexl)
+write_xlsx(x = dunn_result, path = "dunn_result.xlsx", col_names = TRUE)
+```
+
+####plot the histogram of clusters to decide the k
+```{r}
+# ward clusters are more evenly 
+
+
+for (i in 1:3)
+{memb2<-cutree(hc2,k=i)
+hist(memb2)}
+
+memb2<-cutree(hc2,k=2)
+hist(memb2)
+
+for (i in 1:3)
+{memb4<-cutree(hc4,k=i)
+hist(memb4)}
+
+memb4<-cutree(hc4,k=2)
+hist(memb4)
+
+for (i in 1:3)
+{memb6<-cutree(hc6,k=i)
+hist(memb6)}
+
+memb6<-cutree(hc6,k=2)
+hist(memb6)
+
+```
+
+
+```{r}
+
+# methods to assess
+m <- c( "average",  "complete", "ward")
+names(m) <- c( "average",  "complete", "ward")
+
+# function to compute coefficient
+ac <- function(x) {
+  agnes(diabetes_hclust.df.norm, method = x)$ac
+}
+
+map_dbl(m, ac)
+
+```
+
+
+```{r}
+# hcw <- agnes(dhclust.norm, method = "ward")
+# 
+# pltree(hcw, cex = 0.6, hang = -1, main = "Dendrogram of agnes")
+```
+
+```{r}
+# Cut tree into 2 groups
+# grouping <- cutree(hcw, k = 2)
+
+diabetes_hclust$Outcome <- diabetes.copy$Outcome
+diabetes_hclust$OutcomeClust <-memb6
+
+#rename levels
+diabetes_hclust$OutcomeClust <- gsub(2, 0, diabetes_hclust$OutcomeClust,ignore.case=T)
+
+#change data types
+diabetes_hclust$OutcomeClust <- as.factor(diabetes_hclust$OutcomeClust)
+diabetes_hclust$Outcome <- as.factor(diabetes_hclust$Outcome)
+
+#confusion Matrix
+confusionMatrix(diabetes_hclust$Outcome, diabetes_hclust$OutcomeClust,positive = "1")
 ```
 
 ```{r}
 # trees of method average, complete, ward.d are more clear, so we take those three
 # different colors refer to different clusters
-#head(colors())
-fviz_dend(hc2, k = 13,
-          cex = 0.5,
-          k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07", "#A52A2A","#FF4040","#EE3B3B","#8B2323","#CDAA7D","#98F5FF","#7FFF00","#66CD00","#53868B"),
-          color_labels_by_k = TRUE,
-          rect = TRUE
+#head(colors()) 
+# fviz_dend(hc2, k = 13, 
+#           cex = 0.5, 
+#           k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07", "#A52A2A","#FF4040","#EE3B3B","#8B2323","#CDAA7D","#98F5FF","#7FFF00","#66CD00","#53868B"),
+#           color_labels_by_k = TRUE, 
+#           rect = TRUE          
+# )
+# 
+# fviz_dend(hc4, k = 8, 
+#           cex = 0.5, 
+#           k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07", "#A52A2A","#FF4040","#EE3B3B","#8B2323"),
+#           color_labels_by_k = TRUE, 
+#           rect = TRUE          
+# )
+
+fviz_dend(hc6, k = 2, 
+          cex = 0.5, 
+          k_colors = c("#2E9FDF", "#00AFBB"),
+          color_labels_by_k = TRUE, 
+          rect = TRUE          
 )
 
-fviz_dend(hc4, k = 8,
-          cex = 0.5,
-          k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07", "#A52A2A","#FF4040","#EE3B3B","#8B2323"),
-          color_labels_by_k = TRUE,
-          rect = TRUE
-)
+# fviz_dend(hcw, k = 2,
+#           cex = 0.5,
+#           k_colors = c("#2E9FDF","#53868B"),
+#           color_labels_by_k = TRUE,
+#           rect = TRUE)
+# 
+# fviz_dend(hc4, k = 8,
+#           cex = 0.5,
+#           k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07", "#A52A2A","#FF4040","#EE3B3B","#8B2323"),
+#           color_labels_by_k = TRUE,
+#           rect = TRUE)
+# 
+# fviz_dend(hc6, k = 10,
+#           cex = 0.5,
+#           k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07", "#A52A2A","#FF4040","#EE3B3B","#8B2323","#66CD00","#53868B"),
+#           color_labels_by_k = TRUE,
+#           rect = TRUE)
 
-fviz_dend(hc6, k = 10,
-          cex = 0.5,
-          k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07", "#A52A2A","#FF4040","#EE3B3B","#8B2323","#66CD00","#53868B"),
-          color_labels_by_k = TRUE,
-          rect = TRUE
-)
 ```
 
-```{r}
-# get cluster number
-average <- cutree(hc2, k = 13)
-dunn(d.norm, average)
-#memb2
-complete <- cutree(hc4, k = 8)
-dunn(d.norm, complete)
-#memb4
-Ward <- cutree(hc6, k = 2)
-dunn(d.norm, Ward)
-#memb6
-```
 
 ```{r}
-# get histogram for clusters
-#cat(memb2)
-#cat(memb4)
-#cat(memb6)
+#get histogram for clusters
+cat(memb2)
+cat(memb4)
+cat(memb6)
 
 hist(average)
 hist(complete)
@@ -240,35 +391,41 @@ hist(Ward)
 
 ```{r}
 # get heatmaps for three methods
+
+row.names(diabetes.df.norm) <- paste(memb2, ": ", row.names(diabetes), sep = "")
+
 # set labels as cluster membership number : utility name
-row.names(diabetes.df.norm) <- paste(average, ": ", row.names(diabetes), sep = "")
+row.names(diabetes_hclust.df.norm) <- paste(average, ": ", row.names(diabetes_hclust), sep = "")
+
 
 # plot heatmap 
 # rev() reverses the color mapping to large = dark
-heatmap(as.matrix(diabetes.df.norm), Colv = NA, hclustfun = hclust, 
+heatmap(as.matrix(diabetes_hclust.df.norm), Colv = NA, hclustfun = hclust, 
         col=rev(paste("grey",1:99,sep="")))
 
 # set labels as cluster membership number : utility name
-row.names(diabetes.df.norm) <- paste(complete, ": ", row.names(diabetes), sep = "")
+row.names(diabetes_hclust.df.norm) <- paste(complete, ": ", row.names(diabetes_hclust), sep = "")
 
 # plot heatmap 
 # rev() reverses the color mapping to large = dark
-heatmap(as.matrix(diabetes.df.norm), Colv = NA, hclustfun = hclust, 
+heatmap(as.matrix(diabetes_hclust.df.norm), Colv = NA, hclustfun = hclust, 
         col=rev(paste("grey",1:99,sep="")))
 
 # set labels as cluster membership number : utility name
-row.names(diabetes.df.norm) <- paste(Ward, ": ", row.names(diabetes), sep = "")
+row.names(diabetes_hclust.df.norm) <- paste(Ward, ": ", row.names(diabetes_hclust), sep = "")
 
 # plot heatmap 
-# rev() reverses the color mapping to large = dark
-heatmap(as.matrix(diabetes.df.norm), Colv = NA, hclustfun = hclust, 
+# rev() reverses the color mapping to large = dark 
+heatmap(as.matrix(diabetes_hclust.df.norm), Colv = NA, hclustfun = hclust, 
         col=rev(paste("grey",1:99,sep="")))
 
 ```
 
 ```{r}
 # new dataset with cluster results
-diabetes_new <- diabetes %>% mutate(HierCluster = average,HierCluster2 = complete,HierCluster3 = Ward,outcome = diabetes.copy$Glucose)
+diabetes_hclust <- diabetes_hclust %>% mutate(HierCluster=memb6)
+
+
 
 # Create theme for plots
 theme <- theme_test(base_family = "Times New Roman") + theme(plot.title = element_text(hjust = 0.5), 
@@ -278,52 +435,97 @@ theme <- theme_test(base_family = "Times New Roman") + theme(plot.title = elemen
 
 ```{r}
 # get boxplot of glucose for different clusters with three methods
-ggplot(diabetes_new, aes(x = as.factor(HierCluster), y = Glucose)) +
+##Glucose
+ggplot(diabetes_hclust, aes(x = as.factor(HierCluster), y = Glucose   )) +
   geom_boxplot(colour = "black") +
-  theme + labs(title = "Distribution of Glucose by cluster of average method", x = "cluster", y = "Glucose")
+  theme + labs(title = "Distribution of Glucose by cluster ", x = "cluster", y = "Glucose")
 
-ggplot(diabetes_new, aes(x = as.factor(HierCluster2), y = Glucose)) +
+#BMI
+ggplot(diabetes_hclust, aes(x = as.factor(HierCluster), y = BMI   )) +
   geom_boxplot(colour = "black") +
-  theme + labs(title = "Distribution of Glucose by cluster of complete method", x = "cluster", y = "Glucose")
+  theme + labs(title = "Distribution of BMI by cluster ", x = "cluster", y = "BMI")
 
-ggplot(diabetes_new, aes(x = as.factor(HierCluster3), y = Glucose)) +
+#age
+ggplot(diabetes_hclust, aes(x = as.factor(HierCluster), y = Age  )) +
   geom_boxplot(colour = "black") +
-  theme + labs(title = "Distribution of Glucose by cluster of ward method", x = "cluster", y = "Glucose")
+  theme + labs(title = "Distribution of age by cluster ", x = "cluster", y = "Age")
+
+
+#DiabetesPedigreeFunction
+ggplot(diabetes_hclust, aes(x = as.factor(HierCluster), y = DiabetesPedigreeFunction  )) +
+  geom_boxplot(colour = "black") +
+  theme + labs(title = "Distribution of DiabetesPedigreeFunction by cluster ", x = "cluster", y = "DiabetesPedigreeFunction")
+
+
+#BloodPressure
+ggplot(diabetes_hclust, aes(x = as.factor(HierCluster), y = BloodPressure  )) +
+  geom_boxplot(colour = "black") +
+  theme + labs(title = "Distribution of BloodPressure by cluster ", x = "cluster", y = "BloodPressure")
+
+#Insulin
+ggplot(diabetes_hclust, aes(x = as.factor(HierCluster), y =Insulin  )) +
+  geom_boxplot(colour = "black") +
+  theme + labs(title = "Distribution of Insulin by cluster ", x = "cluster", y = "Insulin")
+
+# ggplot(diabetes_hclust, aes(x = as.factor(HierCluster2), y = Glucose)) +
+#   geom_boxplot(colour = "black") +
+#   theme + labs(title = "Distribution of Glucose by cluster of complete method", x = "cluster", y = "Glucose")
+# 
+# ggplot(diabetes_hclust, aes(x = as.factor(HierCluster3), y = Glucose)) +
+#   geom_boxplot(colour = "black") +
+#   theme + labs(title = "Distribution of Glucose by cluster of ward method", x = "cluster", y = "Glucose")
+
+cluster_outcome<-diabetes_hclust %>% group_by(HierCluster,Outcome) %>% summarise(n=n())
+write_xlsx(cluster_outcome, path =  "cluster_outcome.xlsx",col_names = TRUE,
+  format_headers = TRUE)
+
+#Outcome ~ Glucose +  BMI + Age+DiabetesPedigreeFunction + BloodPressure 
+
+```
+
+
+```{r}
+#plot BMI and glucose
+ggplot(diabetes_hclust, aes(BMI, Glucose, col = factor(HierCluster))) + 
+  geom_point(stat = "identity")+theme
+```
+
+<<<<<<< HEAD
+```{r}
+#plot Age and glucose
+ggplot(diabetes_hclust, aes(Age, Glucose, col = factor(HierCluster))) + 
+  geom_point(stat = "identity")+theme
+```
+```{r}
+#DiabetesPedigreeFunction and glucose
+ggplot(diabetes_hclust, aes(DiabetesPedigreeFunction, Glucose, col = factor(HierCluster))) + 
+  geom_point(stat = "identity")+theme
+```
+
+
+```{r}
+#plot insulin and glucose
+ggplot(diabetes_hclust, aes(Insulin, Glucose, col = factor(HierCluster))) + 
+  geom_point(stat = "identity")+theme
+```
+
+
+```{r}
+#plot BloodPressure and glucose
+ggplot(diabetes_hclust, aes(BloodPressure, Glucose, col = factor(HierCluster))) + 
+  geom_point(stat = "identity")+theme
 ```
 
 #######################################################################################
 
 ### 3. Improvement of Models
 
-##### Clustering Selection
+##### With Cluster (Ward)
 
-(1) average
-```{r}
-data <- diabetes.copy
-data$KMeansCluster <- dia.k3$cluster
-data$HierCluster <- average
-
-# CHANGE DATA TYPE
-data$Outcome <- as.factor(data$Outcome)
-data$Pregnancies <- as.factor(data$Pregnancies)
-
-# divide data into train and test set
-set.seed(1)
-randOrder = order(runif(nrow(data)))
-train.df = subset(data,randOrder < .8 * nrow(data))
-test.df = subset(data,randOrder > .8 * nrow(data))
-```
-
-(2) complete
 ```{r}
 data2 <- diabetes.copy
-data2$KMeansCluster <- dia.k3$cluster
-data2$HierCluster <- complete
-
-# CHANGE DATA TYPE
-data2$Outcome <- as.factor(data$Outcome)
-data2$Pregnancies <- as.factor(data$Pregnancies)
-
+data2$KMeansCluster <- dia.k2$cluster
+data2$HierCluster <- Ward
 # divide data into train and test set
 set.seed(1)
 randOrder = order(runif(nrow(data2)))
@@ -331,66 +533,40 @@ train.df2 = subset(data2,randOrder < .8 * nrow(data2))
 test.df2 = subset(data2,randOrder > .8 * nrow(data2))
 ```
 
-(3) Ward
+##### Without Cluster
+
 ```{r}
-data3 <- diabetes.copy
-data3$KMeansCluster <- dia.k3$cluster
-data3$HierCluster <- Ward
-
-# CHANGE DATA TYPE
-data3$Outcome <- as.factor(data$Outcome)
-data3$Pregnancies <- as.factor(data$Pregnancies)
-
-# divide data into train and test set
-set.seed(1)
-randOrder = order(runif(nrow(data3)))
-train.df3 = subset(data3,randOrder < .8 * nrow(data3))
-test.df3 = subset(data3,randOrder > .8 * nrow(data3))
+train.df1 <- train.df2 %>% dplyr::select(-c(KMeansCluster, HierCluster))
+test.df1 <- test.df2 %>% dplyr::select(-c(KMeansCluster, HierCluster))
 ```
 
 ##### correlation matrix
 
-```{r, fig.width=8}
+```{r, fig.width=10}
 # plot the correlation matrix visual
-par(mfrow=c(1,3))
+par(mfrow=c(1,2))
 
-### average
-corr.df <- train.df
-corr.df$Outcome <- as.numeric(corr.df$Outcome)
+### Original
+corr.df <- train.df1
 corr.df$Pregnancies <- as.numeric(corr.df$Pregnancies)
 cor <- cor(corr.df)
 col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
-corrplot1 <- corrplot(cor, method="color", col=col(200),  
+corrplot3 <- corrplot(cor, method="color", col=col(200),
          type="upper", order="hclust", 
          addCoef.col = "black", # Add coefficient of correlation
          tl.col="black", tl.srt=45, #Text label color and rotation
          # Combine with significance
          sig.level = 0.01, insig = "blank", 
          # hide correlation coefficient on the principal diagonal
-         diag=FALSE, title = "average"
+         diag=FALSE, title = "Original"
          )
-### complete
-corr.df <- train.df2
-corr.df$Outcome <- as.numeric(corr.df$Outcome)
-corr.df$Pregnancies <- as.numeric(corr.df$Pregnancies)
-cor <- cor(corr.df)
-col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
-corrplot2 <- corrplot(cor, method="color", col=col(200),  
-         type="upper", order="hclust", 
-         addCoef.col = "black", # Add coefficient of correlation
-         tl.col="black", tl.srt=45, #Text label color and rotation
-         # Combine with significance
-         sig.level = 0.01, insig = "blank", 
-         # hide correlation coefficient on the principal diagonal
-         diag=FALSE, title = "complete"
-         )
+
 ### Ward
-corr.df <- train.df3
-corr.df$Outcome <- as.numeric(corr.df$Outcome)
+corr.df <- train.df2
 corr.df$Pregnancies <- as.numeric(corr.df$Pregnancies)
 cor <- cor(corr.df)
 col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
-corrplot3 <- corrplot(cor, method="color", col=col(200),  
+corrplot3 <- corrplot(cor, method="color", col=col(200),
          type="upper", order="hclust", 
          addCoef.col = "black", # Add coefficient of correlation
          tl.col="black", tl.srt=45, #Text label color and rotation
@@ -401,89 +577,52 @@ corrplot3 <- corrplot(cor, method="color", col=col(200),
          )
 ```
 
-```{r}
-# create model with no predictors for bottom of search range
-glu.lm.null <- lm(Glucose ~1, data = train.df3)
-glu.lm <- lm(Glucose ~., data = train.df3)
+### Regression
 
-# backward
-glu.lm.step_back <- step(glu.lm, direction = "backward")
-sum_back <- summary(glu.lm.step_back)
-summary(glu.lm.step_back)
+```{r}
+### Without Cluster
+# create model with no predictors for bottom of search range
+dia.lm.null1 <- glm(Outcome~1, data = train.df1)
+dia.lm1 <- glm(Outcome~., data = train.df1)
+# Backward Step-wise
+dia.lm.step_back1 <- step(dia.lm1, direction = "backward")
+sum_back1 <- summary(dia.lm.step_back1); sum_back1
+# Confusion matrix and Accuracy
+tst_pred1 <- ifelse(predict(dia.lm.step_back1, newdata = test.df1, type = "response") > 0.5, 1, 0)
+tst_tab1 <- table(predicted = tst_pred1, actual = test.df1$Outcome)
+sum(diag(tst_tab1))/sum(tst_tab1)
+test_prob1 <- predict(dia.lm.step_back1, newdata = test.df1, type = "response")
+test_roc1 <- roc(test.df1$Outcome ~ test_prob1, plot = TRUE, print.auc = TRUE) # 0.774
+confusionMatrix(table(predicted = tst_pred1, actual = test.df1$Outcome), positive = "1")
+
+### With Cluster
+# create model with no predictors for bottom of search range
+dia.lm.null2 <- glm(Outcome~1, data = train.df2)
+dia.lm2 <- glm(Outcome~., data = train.df2)
+# Backward Step-wise
+dia.lm.step_back2 <- step(dia.lm2, direction = "backward")
+sum_back2 <- summary(dia.lm.step_back2); sum_back2
+# Confusion matrix and Accuracy
+tst_pred2 <- ifelse(predict(dia.lm.step_back2, newdata = test.df2, type = "response") > 0.5, 1, 0)
+tst_tab2 <- table(predicted = tst_pred2, actual = test.df2$Outcome)
+sum(diag(tst_tab2))/sum(tst_tab2)
+test_prob2 <- predict(dia.lm.step_back2, newdata = test.df2, type = "response")
+test_roc2 <- roc(test.df2$Outcome ~ test_prob2, plot = TRUE, print.auc = TRUE) # 0.774
+confusionMatrix(table(predicted = tst_pred2, actual = test.df2$Outcome), positive = "1")
+```
+
+### Other Comparison
+
+```{r}
+#Residuals 
+model2_data <- augment(dia.lm.step_back2) %>% 
+  mutate(index = 1:n())
+ggplot(model2_data, aes(index, .std.resid, color = Outcome)) + 
+  geom_point(stat = "identity") +
+  labs(title = "Standardized Deviance Residuals", y = "Residual Std", x ="Residuals")
 ```
 
 ```{r}
-# create model with no predictors for bottom of search range
-glu.lm.null <- lm(Glucose ~1, data = train.df3)
-glu.lm <- lm(Glucose ~., data = train.df3)
-
-# backward
-glu.lm.step_back <- step(glu.lm, direction = "backward")
-sum_back <- summary(glu.lm.step_back) 
-summary(glu.lm.step_back) 
-```
-
-```{r}
-# create model with no predictors for bottom of search range
-glu.lm.null <- lm(Glucose ~1, data = train.df)
-glu.lm <- lm(Glucose ~., data = train.df)
-
-# backward
-glu.lm.step_back <- step(glu.lm, direction = "backward")
-sum_back <- summary(glu.lm.step_back) 
-summary(glu.lm.step_back) 
-```
-
-#### the best model for predict glucose
-Glucose ~ DiabetesPedigreeFunction + BloodPressur + newInsu
-```{r}
-#  use options() to ensure numbers are not displayed in scientific notation.
-options(scipen = 999)
-Glucose_model <- lm(formula = Glucose ~ BMI + DiabetesPedigreeFunction + Age + 
-                              Outcome + Insulin + KMeansCluster + HierCluster, data = train.df)
-summary(Glucose_model)  # r^2 = 0.3417
-RMSE <- round(sqrt(c(crossprod(Glucose_model$residuals)) / length(Glucose_model$residuals)),2)
-RMSE
-
 #check for Variance Inflation Factor (VIF); must be < 10; should be less than 5
-vif(Glucose_model)
-
-## additional diagnostics to checsk for outliers/leverage points
-par(mfrow=c(2,2))
-plot(Glucose_model, cex=0.5)
-
-# remove outliers
-train.df3 <- train.df2[-c(183, 61, 400, 211, 48),]
-
-# use accuracy() to compute common accuracy measures. # rmse 25.26732
-accuracy(predict(Glucose_model,train.df3), train.df3$Glucose) %>% kable()
-```
-
-#### Validation
-```{r}
-#### Table 6.4
-# use predict() to make predictions on a new set. 
-glu.lm.pred <- predict(glu.lm, test.df)
-options(scipen=999, digits = 0)
-residuals <- test.df$Glucose - glu.lm.pred
-result_glu<-data.frame("Predicted" = glu.lm.pred, "Actual" = test.df$Glucose,
-           "Residual" = residuals)
-
-options(scipen=999, digits = 3)
-# use accuracy() to compute common accuracy measures.
-accuracy(glu.lm.pred, test.df$Glucose) %>% kable()
-```
-
-```{r, fig.width=2}
-## histogram for residuals
-a<-data.frame(Glucose_model$residuals)
-# Histogram with density plot
-# Add mean line
-p2<-ggplot(a, aes(x=Glucose_model.residuals)) + 
- geom_histogram(aes(y=..density..), colour="black", fill="white")+
- geom_density(alpha=.2, fill="#FF6666")+
-  geom_vline(aes(xintercept=mean(Glucose_model.residuals)),
-            color="red", linetype="dashed", size=1) +
-  theme
-p2
+vif(dia.lm.step_back2)
 ```
